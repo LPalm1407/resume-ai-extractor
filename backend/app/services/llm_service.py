@@ -1,31 +1,30 @@
 import httpx
+import json
 from app.core.config import OLLAMA_URL, OLLAMA_MODEL
 
-class LLMService:
+async def askLLM(prompt: str):
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": prompt,
+        "temperature": 0.7,
+        "stream": True  
+    }
 
-    async def extract_resume(self, text: str):
-        prompt = f"""
-Extract sructured information from resume.PermissionError
+    full_response = ""
 
-Return ONLY valid JSON with:
-- name
-- skills(array)
-- experience_years
-- role_level
-- summary
-
-Resume:
-{text}
-"""
-        async with httpx.AsyncClient() as client:
-            response = await client.post(f"{OLLAMA_URL}/api/generate",
-                                         json={
-                                             "model": f"{OLLAMA_MODEL}",
-                                             "prompt": prompt,
-                                             "stream": False
-                                         }, timeout=180
-                                         )
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        async with client.stream("POST", OLLAMA_URL + "/api/generate", json=payload) as response:
+            print("Status:", response.status_code)
             response.raise_for_status()
-            return response.json()["response"]
 
-llm = LLMService()
+            async for line in response.aiter_lines():
+                if line:
+                    try:
+                        chunk = json.loads(line)
+                        text = chunk.get("response", "")
+                        full_response += text
+                        print(text, end="", flush=True)
+                    except json.JSONDecodeError:
+                        continue
+
+    return full_response

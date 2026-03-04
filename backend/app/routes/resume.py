@@ -2,9 +2,7 @@ from fastapi import APIRouter, UploadFile, File
 import tempfile
 from pypdf import PdfReader
 import io
-
-from app.services.resume_parser import extractTextFromPdf
-from app.services.llm_service import llm
+from app.services.resume_service import extractResumeData
 
 router = APIRouter(prefix="/resume", tags=["resume"])
 
@@ -30,4 +28,5 @@ async def extractText(file: UploadFile = File(...)):
         if text:
             fullText += text + "\n"
 
-    return {"text": fullText}
+    parsedResume = await extractResumeData(fullText)
+    return {"parsed": parsedResume}
